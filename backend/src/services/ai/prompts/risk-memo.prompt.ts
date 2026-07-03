@@ -1,37 +1,33 @@
-import { RiskScore, GraphLink, RiskFactor } from "../../../workflows/shared/workflow-events";
-
-export function buildRiskMemoPrompt(params: {
-  merchantId: string;
-  businessName: string;
-  riskScore: RiskScore;
-  graphLinks: GraphLink[];
-  enrichmentSummary: string;
+export function buildRiskMemoPrompt(input: {
+  businessName: string
+  merchantId: string
+  riskScore: number
+  riskLevel: string
+  enrichmentData?: Record<string, unknown>
+  graphData?: Record<string, unknown>
 }): string {
-  const { merchantId, businessName, riskScore, graphLinks, enrichmentSummary } = params;
+  return `You are a compliance officer generating a risk memo.
 
-  const linkSummary = graphLinks
-    .map((l) => `- ${l.fromType} ${l.fromId} —[${l.relationship}]→ ${l.toType} ${l.toId} (degree ${l.degree})`)
-    .join("\n");
+Merchant: "${input.businessName}" (ID: ${input.merchantId})
+Overall Risk Score: ${input.riskScore}/100
+Risk Level: ${input.riskLevel}
 
-  return `You are a fraud risk analyst AI. Write a concise, factual investigator risk memo for the following merchant investigation.
+${
+  input.enrichmentData
+    ? `Enrichment Findings:\n${JSON.stringify(input.enrichmentData, null, 2)}\n`
+    : ''
+}
+${
+  input.graphData
+    ? `Graph Analysis:\n${JSON.stringify(input.graphData, null, 2)}`
+    : ''
+}
 
-MERCHANT: ${merchantId} — "${businessName}"
-RISK SCORE: ${riskScore.total}/100 (${riskScore.level})
-
-RISK FACTORS:
-${riskScore.breakdown.map((f: RiskFactor) => `- ${f.factor} (+${f.points} pts): ${f.evidence}`).join("\n")}
-
-GRAPH CONNECTIONS:
-${linkSummary || "No suspicious graph connections found."}
-
-ENRICHMENT DATA:
-${enrichmentSummary}
-
-Write a 3-5 sentence memo in plain English that:
-1. States the risk level and top reason
-2. Describes the most suspicious graph connections
-3. Gives a clear recommended action (Approve / Send to Review / Block)
-4. Uses specific IDs and numbers from the data above
-
-Do NOT use bullet points. Write as a single professional paragraph.`;
+Generate a formal risk assessment memo covering:
+1. Executive Summary
+2. Key Risk Factors
+3. Enrichment Findings
+4. Graph/Network Analysis
+5. Overall Assessment & Recommendation
+`
 }

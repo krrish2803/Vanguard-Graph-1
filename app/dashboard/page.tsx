@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/v1/merchants")
+    fetch("http://localhost:3001/api/v1/merchants")
       .then((res) => res.json())
       .then((json) => {
         setMerchants(json.data || []);
@@ -44,7 +44,7 @@ export default function DashboardPage() {
 
         {error && (
           <div className="bg-yellow-50 border border-yellow-300 text-yellow-700 p-4 rounded">
-            Backend is not running. Start the backend server on port 4000 to see live data.
+            Backend is not running. Start the backend server on port 3001 to see live data.
           </div>
         )}
 

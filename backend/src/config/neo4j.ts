@@ -1,31 +1,41 @@
-import dotenv from "dotenv";
-dotenv.config();
+import neo4j, { Driver } from 'neo4j-driver'
+import { env } from './env'
+import { logger } from './logger'
 
-import neo4j from "neo4j-driver";
-import neo4j from "neo4j-driver";
+let driver: Driver
 
-
-export const neo4jDriver = neo4j.driver(
-  process.env.NEO4J_URI || "bolt://localhost:7687",
-  neo4j.auth.basic(
-    process.env.NEO4J_USERNAME || "neo4j",
-    process.env.NEO4J_PASSWORD || "password"
+function createDriver(): Driver {
+  return neo4j.driver(
+    env.NEO4J_URI,
+    neo4j.auth.basic(env.NEO4J_USER, env.NEO4J_PASSWORD),
+    { maxConnectionPoolSize: 10 }
   )
-);
-
-export async function getSession() {
-  return neo4jDriver.session();
 }
 
-export async function verifyNeo4jConnection(): Promise<void> {
-  const session = await getSession();
+export function getDriver(): Driver {
+  if (!driver) {
+    driver = createDriver()
+  }
+  return driver
+}
+
+export async function verifyNeo4jConnection(): Promise<boolean> {
   try {
-    await session.run("RETURN 1");
-    console.log("✅ Neo4j connected");
+    const d = getDriver()
+    const serverInfo = await d.getServerInfo()
+    logger.info('Neo4j connected', { serverInfo: `${serverInfo.agent} - ${serverInfo.protocolVersion}` })
+    return true
   } catch (err) {
-    console.error("❌ Neo4j connection failed:", err);
-    throw err;
-  } finally {
-    await session.close();
+    logger.error('Neo4j connection failed', { error: (err as Error).message })
+    return false
   }
 }
+
+export async function closeDriver(): Promise<void> {
+  if (driver) {
+    await driver.close()
+    logger.info('Neo4j driver closed')
+  }
+}
+
+export default getDriver

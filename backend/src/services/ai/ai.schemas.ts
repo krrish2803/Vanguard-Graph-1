@@ -1,14 +1,21 @@
-import { z } from "zod";
+import { z } from 'zod'
+import { AIRequestSchema, MemoInputSchema } from './ai.types'
 
-export const InvestigatorActionSchema = z.enum(["APPROVE", "REVIEW", "BLOCK"]);
-export type InvestigatorAction = z.infer<typeof InvestigatorActionSchema>;
+export { AIRequestSchema, MemoInputSchema }
 
-export function parseNextAction(raw: string): InvestigatorAction {
-  const cleaned = raw.trim().toUpperCase();
-  const result = InvestigatorActionSchema.safeParse(cleaned);
-  if (result.success) return result.data;
-  // fallback: scan for keyword
-  if (cleaned.includes("BLOCK")) return "BLOCK";
-  if (cleaned.includes("REVIEW")) return "REVIEW";
-  return "APPROVE";
-}
+export const GenerateTextSchema = AIRequestSchema.extend({
+  model: z.string().default('nvidia/llama-3.1-nemotron-70b-instruct'),
+  temperature: z.number().min(0).max(2).default(0.3),
+  maxTokens: z.number().positive().default(1024),
+})
+
+export const GenerateMemoSchema = MemoInputSchema
+
+export const AnalyzeFraudRingSchema = z.object({
+  merchantIds: z.array(z.string()).min(1),
+  fraudRingData: z.object({
+    sharedEntityId: z.string(),
+    connectedAccounts: z.array(z.string()),
+    accountCount: z.number(),
+  }),
+})

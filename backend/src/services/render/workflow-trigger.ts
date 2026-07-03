@@ -1,31 +1,41 @@
-import { renderClient } from "./render-client";
-import { MerchantEvent } from "../../workflows/shared/workflow-events";
-import { WorkflowLogger } from "../../workflows/shared/workflow-logger";
+import { RenderClient, RenderDeployResponse } from './render-client'
+import { logger } from '../../config/logger'
 
-const logger = new WorkflowLogger("WorkflowTrigger");
-
-export interface TriggerPayload {
-  investigationId: string;
-  event: MerchantEvent;
+export interface WorkflowTriggerPayload {
+  merchantId: string
+  eventType: 'ONBOARDING'
+  data: Record<string, unknown>
 }
 
-export async function triggerRenderWorkflow(payload: TriggerPayload): Promise<string> {
-  const workflowId = process.env.RENDER_WORKFLOW_ID;
+function getServiceId(eventType: string): string {
+  return process.env[`RENDER_${eventType}_SERVICE_ID`] || ''
+}
 
-  if (!workflowId) {
-    logger.warn("RENDER_WORKFLOW_ID not set, skipping external trigger");
-    return "mock-run-" + Date.now();
-  }
+const PLACEHOLDER_SERVICE_IDS = ['placeholder', 'demo', 'test']
 
-  try {
-    const res = await renderClient.post(`/workflows/${workflowId}/runs`, {
-      input: JSON.stringify(payload),
-    });
-    logger.info("Render workflow triggered", { runId: res.data?.id });
-    return res.data?.id || "unknown";
-  } catch (err: any) {
-    logger.error("Failed to trigger Render workflow", { error: err.message });
-    // Don't throw — investigation continues in-process as fallback
-    return "fallback-run-" + Date.now();
+export class WorkflowTrigger {
+  constructor(private client: RenderClient) {}
+
+  async trigger(payload: WorkflowTriggerPayload): Promise<RenderDeployResponse> {
+    const serviceId = getServiceId(payload.eventType)
+
+    if (!serviceId || PLACEHOLDER_SERVICE_IDS.includes(serviceId)) {
+      logger.info('Using demo workflow data', { eventType: payload.eventType, merchantId: payload.merchantId })
+      return {
+        deployId: `demo-dep-${Date.now()}`,
+        status: 'live',
+        url: `https://demo.render.com/deploy/${Date.now()}`,
+      }
+    }
+
+    logger.info('Triggering workflow', { eventType: payload.eventType, merchantId: payload.merchantId })
+
+    return this.client.triggerWorkflow(serviceId, {
+      envVars: [
+        { key: 'MERCHANT_ID', value: payload.merchantId },
+        { key: 'EVENT_TYPE', value: payload.eventType },
+        { key: 'PAYLOAD', value: JSON.stringify(payload.data) },
+      ],
+    })
   }
 }

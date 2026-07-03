@@ -11,11 +11,11 @@ declare global {
   }
 }
 
-const PUBLIC_ROUTES = ['/health']
+const PUBLIC_ROUTES = ['/health', '/merchants', '/alerts']
 
 export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
   const path = req.path.replace(/^\/api\/v1/, '')
-  if (PUBLIC_ROUTES.includes(path)) {
+  if (PUBLIC_ROUTES.some(route => path === route || path.startsWith(route + '/'))) {
     next()
     return
   }

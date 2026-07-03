@@ -1,49 +1,64 @@
-import { Request, Response } from "express";
-import { MerchantEventSchema } from "./workflows.types";
-import {
-  triggerInvestigation,
-  fetchInvestigation,
-  fetchAllInvestigations,
-  applyInvestigatorAction,
-} from "./workflows.service";
-import { z } from "zod";
+import { Request, Response, NextFunction } from 'express'
+import { WorkflowsService } from './workflows.service'
+import { z } from 'zod'
 
-export async function triggerWorkflow(req: Request, res: Response) {
-  const parsed = MerchantEventSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+const TriggerWorkflowSchema = z.object({
+  merchantId: z.string(),
+  eventType: z.enum(['ONBOARDING']),
+  data: z.record(z.unknown()).optional(),
+})
+
+const WorkflowQuerySchema = z.object({
+  page: z.coerce.number().optional(),
+  limit: z.coerce.number().optional(),
+  merchantId: z.string().optional(),
+  workflowType: z.enum(['ONBOARDING']).optional(),
+  status: z.enum(['running', 'succeeded', 'failed', 'canceled']).optional(),
+})
+
+const UpdateStatusSchema = z.object({
+  status: z.string(),
+})
+
+export class WorkflowsController {
+  constructor(private service: WorkflowsService) {}
+
+  getWorkflowRuns = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const query = WorkflowQuerySchema.parse(req.query)
+      const result = await this.service.getWorkflowRuns(query)
+      res.json({ success: true, ...result })
+    } catch (err) {
+      next(err)
+    }
   }
 
-  try {
-    const result = await triggerInvestigation(parsed.data);
-    return res.status(202).json(result);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
-  }
-}
-
-export async function getInvestigation(req: Request, res: Response) {
-  const { id } = req.params;
-  const inv = fetchInvestigation(id);
-  if (!inv) return res.status(404).json({ error: "Investigation not found" });
-  return res.json(inv);
-}
-
-export async function listInvestigations(_req: Request, res: Response) {
-  return res.json(fetchAllInvestigations());
-}
-
-export async function takeAction(req: Request, res: Response) {
-  const { id } = req.params;
-  const { action } = req.body;
-
-  const ActionSchema = z.enum(["APPROVE", "REVIEW", "BLOCK"]);
-  const parsed = ActionSchema.safeParse(action);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Action must be APPROVE, REVIEW, or BLOCK" });
+  getWorkflowRunById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const run = await this.service.getWorkflowRunById(req.params.id as string)
+      res.json({ success: true, data: run })
+    } catch (err) {
+      next(err)
+    }
   }
 
-  const ok = applyInvestigatorAction(id, parsed.data);
-  if (!ok) return res.status(404).json({ error: "Investigation not found" });
-  return res.json({ success: true, action: parsed.data });
+  triggerWorkflow = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const body = TriggerWorkflowSchema.parse(req.body)
+      const result = await this.service.triggerWorkflow(body.merchantId, body.eventType, body.data)
+      res.status(201).json({ success: true, data: result })
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  updateWorkflowStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { status } = UpdateStatusSchema.parse(req.body)
+      const run = await this.service.updateWorkflowStatus(req.params.id as string, status)
+      res.json({ success: true, data: run })
+    } catch (err) {
+      next(err)
+    }
+  }
 }

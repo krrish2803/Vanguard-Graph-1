@@ -1,17 +1,48 @@
-// Guardrails: sanitize inputs before sending to AI to avoid prompt injection
+import { AIRequest, GuardrailResult } from './ai.types'
+import { logger } from '../../config/logger'
 
-export function sanitizeForPrompt(input: string, maxLength = 200): string {
-  return input
-    .replace(/[`"\\]/g, "") // strip backticks, quotes, backslashes
-    .replace(/\n{3,}/g, "\n\n") // collapse excessive newlines
-    .trim()
-    .slice(0, maxLength);
-}
+const BLOCKED_PATTERNS = [
+  /ignore all previous instructions/i,
+  /forget your (instructions|guidelines|rules)/i,
+  /you are (not |are not )?(an AI|a language model)/i,
+  /system prompt/i,
+  /disregard/i,
+]
 
-export function sanitizeMerchantData(data: Record<string, string>): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(data)) {
-    result[key] = sanitizeForPrompt(value);
+const MAX_INPUT_LENGTH = 100_000
+const MAX_MESSAGES = 100
+
+export function applyInputGuardrails(request: AIRequest): GuardrailResult {
+  const violations: string[] = []
+
+  if (request.messages.length > MAX_MESSAGES) {
+    violations.push(`Exceeded maximum message count: ${request.messages.length} > ${MAX_MESSAGES}`)
   }
-  return result;
+
+  for (const msg of request.messages) {
+    if (msg.content.length > MAX_INPUT_LENGTH) {
+      violations.push(`Message exceeds maximum length: ${msg.content.length} > ${MAX_INPUT_LENGTH}`)
+    }
+
+    for (const pattern of BLOCKED_PATTERNS) {
+      if (pattern.test(msg.content)) {
+        violations.push(`Prompt injection detected: matched pattern ${pattern}`)
+      }
+    }
+  }
+
+  if (request.systemPrompt && request.systemPrompt.length > 10_000) {
+    violations.push(`System prompt exceeds maximum length: ${request.systemPrompt.length} > 10000`)
+  }
+
+  const result: GuardrailResult = {
+    passed: violations.length === 0,
+    violations,
+  }
+
+  if (!result.passed) {
+    logger.warn('AI guardrails blocked request', { violations })
+  }
+
+  return result
 }

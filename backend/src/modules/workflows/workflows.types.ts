@@ -1,16 +1,38 @@
-import { z } from "zod";
+import { WorkflowTriggerPayload } from '../../services/render/workflow-trigger'
 
-export const MerchantEventSchema = z.object({
-  merchantId: z.string().min(1),
-  businessName: z.string().min(1),
-  email: z.string().email(),
-  phone: z.string().min(6),
-  deviceFingerprint: z.string().min(1),
-  ipAddress: z.string().min(1),
-  bankAccountNumber: z.string().min(1),
-  bankRoutingNumber: z.string().min(1),
-  eventType: z.enum(["ONBOARDING", "PAYOUT_CHANGE"]).default("ONBOARDING"),
-  timestamp: z.string().default(() => new Date().toISOString()),
-});
+export type WorkflowType = 'ONBOARDING'
+export type WorkflowRunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 
-export type MerchantEventInput = z.infer<typeof MerchantEventSchema>;
+export interface WorkflowRun {
+  id: string
+  merchantId: string
+  workflowType: WorkflowType
+  status: WorkflowRunStatus
+  renderRunId: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface WorkflowTriggerDTO {
+  merchantId: string
+  workflowType: WorkflowType
+  renderRunId?: string
+}
+
+export interface WorkflowQuery {
+  page?: number
+  limit?: number
+  merchantId?: string
+  workflowType?: WorkflowType
+  status?: WorkflowRunStatus
+}
+
+export interface WorkflowTriggerResponse {
+  workflowRun: WorkflowRun
+  renderDeploy: {
+    deployId: string
+    status: string
+  }
+}
+
+export type { WorkflowTriggerPayload }

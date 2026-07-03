@@ -26,5 +26,4 @@ export const PAGINATION = {
 
 export const WORKFLOW_TYPES = {
   MERCHANT_ONBOARDING: 'merchant-onboarding',
-  PAYOUT_CHANGE: 'payout-change',
 } as const

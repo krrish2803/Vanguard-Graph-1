@@ -1,56 +1,60 @@
-import { runMerchantOnboardingWorkflow, runPayoutChangeWorkflow } from "../../workflows";
-import { triggerRenderWorkflow } from "../../services/render/workflow-trigger";
-import { getInvestigation, listInvestigations, updateInvestigationAction } from "./workflows.repository";
-import { MerchantEventInput } from "./workflows.types";
-import { WorkflowLogger } from "../../workflows/shared/workflow-logger";
+import { WorkflowsRepository } from './workflows.repository'
+import { WorkflowRun, WorkflowTriggerDTO, WorkflowQuery, WorkflowTriggerResponse } from './workflows.types'
+import { WorkflowTrigger, WorkflowTriggerPayload } from '../../services/render/workflow-trigger'
+import { NotFoundError } from '../../shared/errors'
+import { logger } from '../../config/logger'
 
-const logger = new WorkflowLogger("WorkflowsService");
+export class WorkflowsService {
+  constructor(
+    private repository: WorkflowsRepository,
+    private workflowTrigger: WorkflowTrigger,
+  ) {}
 
-export async function triggerInvestigation(input: MerchantEventInput) {
-  const event = { ...input, timestamp: input.timestamp || new Date().toISOString() };
+  async getWorkflowRuns(query: WorkflowQuery) {
+    return this.repository.findAll(query)
+  }
 
-  // Trigger Render Workflow (non-blocking, fire-and-forget for external tracking)
-  // The actual investigation runs in-process as well for MVP reliability
-  triggerRenderWorkflow({ investigationId: "pending", event }).catch(() => {});
+  async getWorkflowRunById(id: string): Promise<WorkflowRun> {
+    const run = await this.repository.findById(id)
+    if (!run) {
+      throw new NotFoundError('WorkflowRun')
+    }
+    return run
+  }
 
-  logger.info("Starting investigation workflow", { merchantId: event.merchantId, type: event.eventType });
+  async triggerWorkflow(merchantId: string, eventType: 'ONBOARDING', data: Record<string, unknown> = {}): Promise<WorkflowTriggerResponse> {
+    logger.info('Triggering workflow', { merchantId, eventType })
 
-  // Run in-process (async, non-blocking to HTTP response)
-  const workflowFn = event.eventType === "PAYOUT_CHANGE" ? runPayoutChangeWorkflow : runMerchantOnboardingWorkflow;
+    const triggerPayload: WorkflowTriggerPayload = {
+      merchantId,
+      eventType,
+      data,
+    }
 
-  // Return investigationId immediately, run in background
-  const promise = workflowFn(event);
-  const investigationId = await new Promise<string>((resolve) => {
-    // Poll until the investigation is registered in the store
-    const poll = setInterval(() => {
-      const all = listInvestigations();
-      const match = all.find((inv) => inv.merchantId === event.merchantId);
-      if (match) {
-        clearInterval(poll);
-        resolve(match.investigationId);
-      }
-    }, 50);
-    // Fallback timeout
-    setTimeout(() => {
-      clearInterval(poll);
-      resolve("pending-" + Date.now());
-    }, 3000);
-  });
+    const renderDeploy = await this.workflowTrigger.trigger(triggerPayload)
 
-  // Let workflow continue in background
-  promise.catch((err) => logger.error("Background workflow error", { error: err.message }));
+    const dto: WorkflowTriggerDTO = {
+      merchantId,
+      workflowType: eventType,
+      renderRunId: renderDeploy.deployId,
+    }
 
-  return { investigationId, status: "TRIGGERED" };
-}
+    const workflowRun = await this.repository.create(dto)
 
-export function fetchInvestigation(id: string) {
-  return getInvestigation(id);
-}
+    return {
+      workflowRun,
+      renderDeploy: {
+        deployId: renderDeploy.deployId,
+        status: renderDeploy.status,
+      },
+    }
+  }
 
-export function fetchAllInvestigations() {
-  return listInvestigations();
-}
-
-export function applyInvestigatorAction(id: string, action: string) {
-  return updateInvestigationAction(id, action);
+  async updateWorkflowStatus(id: string, status: string): Promise<WorkflowRun> {
+    const run = await this.repository.findById(id)
+    if (!run) {
+      throw new NotFoundError('WorkflowRun')
+    }
+    return this.repository.updateStatus(id, status)
+  }
 }

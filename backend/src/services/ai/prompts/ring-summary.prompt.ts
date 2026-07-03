@@ -1,14 +1,25 @@
-import { GraphLink } from "../../../workflows/shared/workflow-events";
+export function buildRingSummaryPrompt(input: {
+  businessName: string
+  merchantId: string
+  fraudRingData: { sharedEntityId: string; connectedAccounts: string[]; accountCount: number }
+  enrichment?: Record<string, unknown>
+}): string {
+  return `You are a fraud analyst reviewing a potential fraud ring.
 
-export function buildRingSummaryPrompt(links: GraphLink[]): string {
-  const linkText = links
-    .map((l) => `${l.fromId} —[${l.relationship}]→ ${l.toId}`)
-    .join("\n");
+Merchant: "${input.businessName}" (ID: ${input.merchantId})
+Shared Entity: ${input.fraudRingData.sharedEntityId}
+Connected Accounts: ${input.fraudRingData.connectedAccounts.join(', ')}
+Account Count: ${input.fraudRingData.accountCount}
 
-  return `You are a fraud ring analyst. Given these entity connections from a graph database, identify if these merchants form a coordinated fraud ring. Be concise (2-3 sentences). Describe the coordination pattern.
+${
+  input.enrichment
+    ? `Additional Enrichment Data:\n${JSON.stringify(input.enrichment, null, 2)}`
+    : ''
+}
 
-CONNECTIONS:
-${linkText}
-
-Focus on: shared payout accounts, shared devices, IP clustering, or other coordination signals.`;
+Please provide a concise fraud ring summary including:
+1. The nature of the connection between accounts
+2. Risk assessment of the ring
+3. Recommended actions
+`
 }

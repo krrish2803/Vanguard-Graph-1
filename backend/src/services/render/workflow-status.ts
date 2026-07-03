@@ -1,26 +1,35 @@
-import { renderClient } from "./render-client";
-import { WorkflowLogger } from "../../workflows/shared/workflow-logger";
+import { RenderClient } from './render-client'
+import { logger } from '../../config/logger'
 
-const logger = new WorkflowLogger("WorkflowStatus");
+export type WorkflowRunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 
-export interface WorkflowRunStatus {
-  id: string;
-  status: string;
-  createdAt: string;
-  finishedAt?: string;
+export interface WorkflowStatusResult {
+  deployId: string
+  status: WorkflowRunStatus
+  finishedAt: string | null
 }
 
-export async function getWorkflowRunStatus(runId: string): Promise<WorkflowRunStatus | null> {
-  const workflowId = process.env.RENDER_WORKFLOW_ID;
-  if (!workflowId || runId.startsWith("mock") || runId.startsWith("fallback")) {
-    return { id: runId, status: "completed", createdAt: new Date().toISOString() };
+export class WorkflowStatus {
+  constructor(private client: RenderClient) {}
+
+  async check(serviceId: string, deployId: string): Promise<WorkflowStatusResult> {
+    logger.info('Checking workflow status', { serviceId, deployId })
+
+    const result = await this.client.getDeployStatus(serviceId, deployId)
+
+    return {
+      deployId,
+      status: this.normalizeStatus(result.status),
+      finishedAt: result.finishedAt,
+    }
   }
 
-  try {
-    const res = await renderClient.get(`/workflows/${workflowId}/runs/${runId}`);
-    return res.data as WorkflowRunStatus;
-  } catch (err: any) {
-    logger.error("Failed to fetch workflow run status", { runId, error: err.message });
-    return null;
+  private normalizeStatus(status: string): WorkflowRunStatus {
+    const lower = status.toLowerCase()
+    if (lower.includes('live') || lower.includes('build')) return 'running'
+    if (lower.includes('success') || lower.includes('complete')) return 'succeeded'
+    if (lower.includes('fail') || lower.includes('error')) return 'failed'
+    if (lower.includes('cancel')) return 'canceled'
+    return 'running'
   }
 }

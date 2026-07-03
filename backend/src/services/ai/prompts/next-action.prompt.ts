@@ -1,9 +1,22 @@
-import { RiskScore, RiskFactor } from "../../../workflows/shared/workflow-events";
+export function buildNextActionPrompt(input: {
+  businessName: string
+  merchantId: string
+  riskScore: number
+  riskLevel: string
+  graphLinks?: Record<string, unknown>[]
+  enrichment?: Record<string, unknown>
+}): string {
+  return `You are a fraud operations specialist reviewing a merchant onboarding.
 
-export function buildNextActionPrompt(riskScore: RiskScore): string {
-  return `Given a fraud risk score of ${riskScore.total}/100 (${riskScore.level}) with these factors:
-${riskScore.breakdown.map((f: RiskFactor) => `- ${f.factor}: ${f.evidence}`).join("\n")}
+Merchant: "${input.businessName}" (ID: ${input.merchantId})
+Risk Score: ${input.riskScore}/${100}
+Risk Level: ${input.riskLevel}
 
-Recommend exactly one of: APPROVE, REVIEW, or BLOCK.
-Respond with only the action word, nothing else.`;
+${input.graphLinks ? `Graph Connections:\n${JSON.stringify(input.graphLinks, null, 2)}\n` : ''}
+${input.enrichment ? `Enrichment Data:\n${JSON.stringify(input.enrichment, null, 2)}\n` : ''}
+
+Based on the above, what is the recommended next action?
+Choose one: APPROVE | REVIEW | BLOCK
+Provide a brief rationale (2-3 sentences).
+`
 }

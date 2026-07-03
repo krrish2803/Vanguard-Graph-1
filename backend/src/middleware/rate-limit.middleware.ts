@@ -5,7 +5,7 @@ import { env } from '../config/env'
 
 export const rateLimitMiddleware = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: env.NODE_ENV === 'production' ? 100 : 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

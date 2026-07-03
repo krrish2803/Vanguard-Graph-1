@@ -1,21 +1,21 @@
-import { Router } from "express";
-import {
-  triggerWorkflow,
-  getInvestigation,
-  listInvestigations,
-  takeAction,
-} from "../modules/workflows/workflows.controller";
+import { Router } from 'express'
+import { WorkflowsController } from '../modules/workflows/workflows.controller'
+import { WorkflowsService } from '../modules/workflows/workflows.service'
+import { WorkflowsRepository } from '../modules/workflows/workflows.repository'
+import { RenderClient } from '../services/render/render-client'
+import { WorkflowTrigger } from '../services/render/workflow-trigger'
 
-export const workflowRoutes = Router();
+const repository = new WorkflowsRepository()
+const renderClient = new RenderClient()
+const workflowTrigger = new WorkflowTrigger(renderClient)
+const service = new WorkflowsService(repository, workflowTrigger)
+const controller = new WorkflowsController(service)
 
-// POST /api/workflows/trigger — start an investigation
-workflowRoutes.post("/trigger", triggerWorkflow);
+const router = Router()
 
-// GET /api/workflows — list all investigations
-workflowRoutes.get("/", listInvestigations);
+router.post('/trigger', controller.triggerWorkflow)
+router.get('/', controller.getWorkflowRuns)
+router.get('/:id', controller.getWorkflowRunById)
+router.patch('/:id/status', controller.updateWorkflowStatus)
 
-// GET /api/workflows/:id — get one investigation by ID
-workflowRoutes.get("/:id", getInvestigation);
-
-// POST /api/workflows/:id/action — investigator takes action
-workflowRoutes.post("/:id/action", takeAction);
+export default router

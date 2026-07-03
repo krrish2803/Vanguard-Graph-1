@@ -26,7 +26,7 @@ export default function NewMerchantPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:4000/api/v1/merchants", {
+      const res = await fetch("http://localhost:3001/api/v1/merchants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -39,7 +39,7 @@ export default function NewMerchantPage() {
         setError(json.error?.message ?? "Something went wrong.");
       }
     } catch {
-      setError("Backend is offline. Please start the server on port 4000.");
+      setError("Backend is offline. Please start the server on port 3001.");
     } finally {
       setLoading(false);
     }

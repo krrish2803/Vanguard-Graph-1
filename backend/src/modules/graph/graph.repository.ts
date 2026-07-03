@@ -1,4 +1,5 @@
-import driver from '../../config/neo4j';
+import { getDriver } from '../../config/neo4j';
+const driver = getDriver();
 
 export class GraphRepository {
   

@@ -19,7 +19,7 @@ export interface MerchantEvent {
   ipAddress: string;
   bankAccountNumber: string;
   bankRoutingNumber: string;
-  eventType: "ONBOARDING" | "PAYOUT_CHANGE";
+  eventType: "ONBOARDING";
   timestamp: string;
 }
 
