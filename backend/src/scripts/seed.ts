@@ -2,6 +2,7 @@ import { getPrismaClient } from '../config/postgres'
 import { logger } from '../config/logger'
 import { seedMerchants } from '../seeds/merchants.seed'
 import { seedFraudCases } from '../seeds/fraud-cases.seed'
+import { seedWorkflows } from '../seeds/workflows.seed'
 
 async function main(): Promise<void> {
   await getPrismaClient()
@@ -9,6 +10,7 @@ async function main(): Promise<void> {
 
   await seedMerchants()
   await seedFraudCases()
+  await seedWorkflows()
 
   logger.info('Seeding complete')
   process.exit(0)

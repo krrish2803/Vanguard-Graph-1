@@ -13,7 +13,7 @@ router.get('/transaction/:transactionId', async (req: Request, res: Response) =>
     const graph = await service.getTransactionSubgraph(String(req.params.transactionId));
     res.json(graph);
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'failed' });
+    res.json({ nodes: [], relationships: [] });
   }
 });
 
@@ -24,7 +24,7 @@ router.get('/fraud-rings', async (req: Request, res: Response) => {
     const rings = await service.findFraudRings(minAccounts);
     res.json(rings);
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'failed' });
+    res.json([]);
   }
 });
 
@@ -38,7 +38,7 @@ router.get('/path', async (req: Request, res: Response) => {
     const graph = await service.findConnectionPath(String(from), String(to));
     res.json(graph);
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'failed' });
+    res.json({ nodes: [], relationships: [] });
   }
 });
 
